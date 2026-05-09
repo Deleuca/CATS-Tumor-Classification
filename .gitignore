@@ -1,1 +1,4 @@
 venv
+CLAUDE.md
+src/__pycache__
+dummy-data.csv
