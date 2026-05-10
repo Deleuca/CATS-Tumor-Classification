@@ -1,0 +1,19 @@
+Data: 100 samples, 2834 features (chromosomes: 23)
+Classes: {'HER2+': 32, 'HR+': 36, 'Triple Neg': 32}
+
+5-fold stratified CV  (each row = mean +/- std over folds)
+config                    accuracy          macro-F1            time
+--------------------------------------------------------------------
+L1-SVM    (mu=inf)        0.800 +/- 0.084    0.797 +/- 0.087       37s
+fused     (mu=10)         0.800 +/- 0.084    0.795 +/- 0.087       38s
+fused     (mu=5)          0.790 +/- 0.086    0.782 +/- 0.091       37s
+fused     (mu=1)          0.690 +/- 0.107    0.679 +/- 0.121       57s
+fused     (l=20,mu=5)     0.790 +/- 0.086    0.784 +/- 0.092       36s
+fused     (l=100,mu=5)    0.790 +/- 0.086    0.782 +/- 0.091       36s
+
+Aggregated CV confusion matrix for best config: L1-SVM    (mu=inf)
+  rows = true, cols = predicted; class order = ['HER2+', 'HR+', 'Triple Neg']
+                     HER2+         HR+  Triple Neg
+         HER2+          32           0           0
+           HR+           0          28           8
+    Triple Neg           0          12          20
