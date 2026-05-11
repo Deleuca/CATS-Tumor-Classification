@@ -102,11 +102,11 @@ if __name__ == "__main__":
     import sys
     sys.path.insert(0, "src")
     from sklearn.linear_model import LogisticRegression
-    from logistic_regression import read_data
+    from svm import read_data  # canonical loader (returns X, y, chromosomes)
 
-    X, y = read_data()
-    X_arr = X.to_numpy()
-    y_arr = y.to_numpy()
+    X_df, y_s, _ = read_data()
+    X_arr = X_df.to_numpy()
+    y_arr = y_s.to_numpy()
 
     splits = make_splits(y_arr)
 

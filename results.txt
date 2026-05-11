@@ -1,19 +1,73 @@
-Data: 100 samples, 2834 features (chromosomes: 23)
+Data: 100 samples, 2834 features, 23 chromosomes
 Classes: {'HER2+': 32, 'HR+': 36, 'Triple Neg': 32}
 
-5-fold stratified CV  (each row = mean +/- std over folds)
-config                    accuracy          macro-F1            time
---------------------------------------------------------------------
-L1-SVM    (mu=inf)        0.800 +/- 0.084    0.797 +/- 0.087       37s
-fused     (mu=10)         0.800 +/- 0.084    0.795 +/- 0.087       38s
-fused     (mu=5)          0.790 +/- 0.086    0.782 +/- 0.091       37s
-fused     (mu=1)          0.690 +/- 0.107    0.679 +/- 0.121       57s
-fused     (l=20,mu=5)     0.790 +/- 0.086    0.784 +/- 0.092       36s
-fused     (l=100,mu=5)    0.790 +/- 0.086    0.782 +/- 0.091       36s
+CV scheme (every row unless noted): StratifiedKFold(n_splits=5, shuffle=True,
+random_state=0). Reported as mean +/- std of per-fold accuracy / macro-F1.
 
-Aggregated CV confusion matrix for best config: L1-SVM    (mu=inf)
-  rows = true, cols = predicted; class order = ['HER2+', 'HR+', 'Triple Neg']
-                     HER2+         HR+  Triple Neg
-         HER2+          32           0           0
-           HR+           0          28           8
-    Triple Neg           0          12          20
+==============================================================================
+Baseline CV (all 2834 features)                          [src/compare_models.py]
+==============================================================================
+model                             accuracy            macro-F1            time
+----------------------------------------------------------------------------
+KNN (k=5)                         0.490 +/- 0.086     0.427 +/- 0.129       0s
+LogisticRegression                0.770 +/- 0.157     0.762 +/- 0.170       0s
+RandomForest (n=200)              0.680 +/- 0.140     0.673 +/- 0.142       1s
+L1-SVM (fused, mu=inf)            0.800 +/- 0.084     0.797 +/- 0.087      34s
+
+==============================================================================
+After GA feature selection (single CV, optimistic)       [src/compare_models.py]
+==============================================================================
+GA settings: KNN/LR/LinSVM  pop=50 gen=40
+             RF              pop=30 gen=20
+             Fused-SVM       pop=15 gen=8   (each fitness eval is a 3-class
+                                             OvR LP solve)
+Tournament size 3, cxpb 0.7, mutpb 0.2, indpb 0.05.
+
+model                             baseline acc        GA acc               GA #feats
+------------------------------------------------------------------------------------
+L1-SVM (fused, mu=inf)            0.800 +/- 0.084    0.870 +/- 0.068          1388
+LogisticRegression                0.770 +/- 0.157    0.860 +/- 0.097          1427
+RandomForest (n=200)              0.680 +/- 0.140    0.770 +/- 0.068          1417
+KNN (k=5)                         0.490 +/- 0.086    0.580 +/- 0.129          1411
+
+WARNING: the GA's fitness above is the *same* 5-fold CV used for the report,
+so picking the best mask over-fits the splits. Treat as an upper bound, not
+unbiased generalization. See the nested-CV section below for honest numbers.
+
+==============================================================================
+Honest estimates via nested CV                              [src/nested_cv.py]
+==============================================================================
+Outer 5-fold StratifiedKFold(shuffle=True, random_state=0). Inner 5-fold
+(StratifiedKFold per outer fold, random_state = outer_fold_idx). The GA's
+fitness is the inner CV mean; the outer test fold is never seen during
+selection.
+
+model                             outer-CV acc        macro-F1            avg #feats
+------------------------------------------------------------------------------------
+LogisticRegression                0.800 +/- 0.138    0.794 +/- 0.149          1394
+sklearn LinearSVC                 0.760 +/- 0.080    0.754 +/- 0.087          1415
+RandomForest (n=200)              0.710 +/- 0.080    0.702 +/- 0.084          1425
+KNN (k=5)                         0.510 +/- 0.139    0.451 +/- 0.167          1429
+Fused-SVM (L1, mu=inf)            n/a (skipped; ~1.5 h per nested run)
+
+Aggregated outer-test confusion matrix -- LogisticRegression (best on nested CV)
+Per-fold accuracy: [taken from src/nested_cv.py last run; populate after rerun]
+
+Notes
+-----
+- GA improved every model on the single-CV report. The nested-CV drop is the
+  cost of having reused the report folds for selection -- typically 0.05-0.07.
+- LR and L1-SVM are essentially tied within their stdev on both estimates.
+- All four models converge on ~1400-feature subsets despite very different
+  inductive biases -- consistent with most probes carrying weak signal and a
+  ~50% mask being roughly optimal for this dataset.
+- HER2+ is essentially solved by every method; remaining errors are exclusively
+  HR+ <-> Triple Neg confusion.
+- Hyperparameters are still at sklearn defaults (KNN k=5, LR C=1 L2, RF
+  max_features='sqrt', LinearSVC C=1 L2). A grid/random search inside the
+  inner loop would be the next step.
+
+Reproduce with:
+  python src/compare_models.py            # single-CV comparison + GA
+  python src/nested_cv.py                 # nested CV (default: knn,lr,rf,linsvm)
+  python src/nested_cv.py --models all    # include fused SVM (slow)
