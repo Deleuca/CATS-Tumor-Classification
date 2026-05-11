@@ -19,7 +19,8 @@ import argparse
 import sys
 # Start your coding
 
-# import the library you need here
+import pickle
+import pandas as pd
 
 # End your coding
 
@@ -52,8 +53,21 @@ def main():
 
     # suggested steps
     # Step 1: load the model from the model file
+    with open(args.model_file, 'rb') as f:
+        bundle = pickle.load(f)
+    pipeline = bundle['pipeline']
+    selected = bundle['selected_features']
+
     # Step 2: apply the model to the input file to do the prediction
+    call = pd.read_csv(args.input_file, sep='\t')
+    sample_names = call.columns[4:]
+    X = call[sample_names].T.to_numpy()
+    y_pred = pipeline.predict(X[:, selected])
+
     # Step 3: write the prediction into the desinated output file
+    with open(args.output_file, 'w') as f:
+        for label in y_pred:
+            f.write(f'{label}\n')
 
     # End your coding
 
