@@ -24,22 +24,32 @@ DEFAULTS = dict(
     n_generations=40,
     crossover_prob=0.7,
     mutation_prob=0.2,
-    tournament_size=3,
-    flip_prob=0.05,
+    flip_prob_on=0.8,   # prob of dropping a currently-selected feature (1 -> 0)
+    flip_prob_off=0.1,  # prob of adding an unselected feature (0 -> 1)
     init_density=0.5,
 )
 
 
 def _ensure_creator_classes():
     """DEAP's creator module rebinds class names globally; guard re-registration."""
-    if not hasattr(creator, "FitnessMaxFS"):
-        creator.create("FitnessMaxFS", base.Fitness, weights=(1.0,))
+    if not hasattr(creator, "FitnessMultiFS"):
+        # weights=(1.0, -1.0): maximise accuracy, minimise feature count
+        creator.create("FitnessMultiFS", base.Fitness, weights=(1.0, -1.0))
     if not hasattr(creator, "IndividualFS"):
-        creator.create("IndividualFS", list, fitness=creator.FitnessMaxFS)
+        creator.create("IndividualFS", list, fitness=creator.FitnessMultiFS)
 
 
 def _bit_with_density(p):
     return 1 if random.random() < p else 0
+
+
+def _asym_flip_bit(individual, p_on_to_off, p_off_to_on):
+    """Asymmetric bit-flip mutation: selected features drop with p_on_to_off,
+    unselected features activate with p_off_to_on."""
+    for i, bit in enumerate(individual):
+        if random.random() < (p_on_to_off if bit else p_off_to_on):
+            individual[i] = 1 - bit
+    return (individual,)
 
 
 def _build_toolbox(n_features, fitness_fn, hp):
@@ -51,8 +61,10 @@ def _build_toolbox(n_features, fitness_fn, hp):
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("evaluate", fitness_fn)
     toolbox.register("mate", tools.cxTwoPoint)
-    toolbox.register("mutate", tools.mutFlipBit, indpb=hp["flip_prob"])
-    toolbox.register("select", tools.selTournament, tournsize=hp["tournament_size"])
+    toolbox.register("mutate", _asym_flip_bit,
+                     p_on_to_off=hp["flip_prob_on"],
+                     p_off_to_on=hp["flip_prob_off"])
+    toolbox.register("select", tools.selNSGA2)
     return toolbox
 
 
@@ -72,25 +84,28 @@ def run_ga(make_model, X, y, splits, *, seed=0, verbose=True, **hp_overrides):
     def fitness(individual):
         idx = np.flatnonzero(np.asarray(individual, dtype=bool))
         if idx.size == 0:
-            return (0.0,)
+            return (0.0, 0)
         accs, _, _, _ = cv_evaluate(make_model, X, y, splits, feature_idx=idx)
-        return (float(accs.mean()),)
+        return (float(accs.mean()), int(idx.size))
 
     toolbox = _build_toolbox(n_features, fitness, hp)
-    population = toolbox.population(n=hp["population_size"])
+    pop_size = hp["population_size"]
+    population = toolbox.population(n=pop_size)
 
     stats = tools.Statistics(key=lambda ind: ind.fitness.values[0])
     stats.register("mean", np.mean)
     stats.register("max", np.max)
-    hof = tools.HallOfFame(maxsize=1)
 
-    algorithms.eaSimple(
+    algorithms.eaMuPlusLambda(
         population, toolbox,
+        mu=pop_size, lambda_=pop_size,
         cxpb=hp["crossover_prob"], mutpb=hp["mutation_prob"],
-        ngen=hp["n_generations"], stats=stats, halloffame=hof, verbose=verbose,
+        ngen=hp["n_generations"], stats=stats, halloffame=None, verbose=verbose,
     )
 
-    best = hof[0]
+    # Pick the highest-accuracy individual from the final Pareto front.
+    pareto_front = tools.sortNondominated(population, len(population), first_front_only=True)[0]
+    best = max(pareto_front, key=lambda ind: ind.fitness.values[0])
     selected = np.flatnonzero(np.asarray(best, dtype=bool))
     return selected, float(best.fitness.values[0])
 

@@ -1,5 +1,6 @@
 import requests
 import pandas as pd
+import os
 
 
 CALL_PATH = "B4TM_CATS_training_data/Train_call.tsv"
@@ -57,11 +58,8 @@ def select_bc_features(
     genes_path=GENES_PATH,
     genome="hg19",
 ):
-    """Like map_features_to_breast_cancer_genes but also returns the feature
-    ids whose region overlaps at least one KEGG breast-cancer gene.
-
-    Returns (kept_feature_ids, sorted_gene_list).
-    """
+    if not os.path.isfile(GENES_PATH):
+        get_breast_cancer_genes()
     call = pd.read_csv(call_path, sep="\t")
     with open(genes_path) as f:
         bc = {line.strip() for line in f if line.strip()}
