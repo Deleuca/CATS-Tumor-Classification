@@ -144,7 +144,15 @@ def svm_run_ga(make_model, X, y, splits, *, seed=0, verbose=True, **hp_overrides
     best = max(pareto_front, key=lambda ind: ind.fitness.values[0])
     selected = np.flatnonzero(np.asarray(best[:-1], dtype=bool))
     best_C = c_values[best[-1]]
-    return selected, best_C, float(best.fitness.values[0])
+    front = [
+        {
+            "accuracy": float(ind.fitness.values[0]),
+            "n_features": int(ind.fitness.values[1]),
+            "features": np.flatnonzero(np.asarray(ind[:-1], dtype=bool)).tolist(),
+        }
+        for ind in pareto_front
+    ]
+    return selected, best_C, float(best.fitness.values[0]), front
 
 
 def svm_run_ga_bc(make_model, X, y, splits, bc_feature_set, *, seed=0, verbose=True, **hp_overrides):
@@ -209,7 +217,16 @@ def svm_run_ga_bc(make_model, X, y, splits, bc_feature_set, *, seed=0, verbose=T
     best = max(pareto_front, key=lambda ind: ind.fitness.values[0])
     selected = np.flatnonzero(np.asarray(best[:-1], dtype=bool))
     best_C = c_values[best[-1]]
-    return selected, best_C, float(best.fitness.values[0])
+    front = [
+        {
+            "accuracy": float(ind.fitness.values[0]),
+            "n_features": int(ind.fitness.values[1]),
+            "n_bc": int(ind.fitness.values[2]),
+            "features": np.flatnonzero(np.asarray(ind[:-1], dtype=bool)).tolist(),
+        }
+        for ind in pareto_front
+    ]
+    return selected, best_C, float(best.fitness.values[0]), front
 
 def rf_run_ga(make_model, X, y, splits, *, seed=0, verbose=True, **hp_overrides):
     """Run the GA and return (selected_feature_indices, best_cv_accuracy).
@@ -251,7 +268,15 @@ def rf_run_ga(make_model, X, y, splits, *, seed=0, verbose=True, **hp_overrides)
     best = max(pareto_front, key=lambda ind: ind.fitness.values[0])
     selected = np.flatnonzero(np.asarray(best[:-1], dtype=bool))
     best_cfg = RF_CONFIGS[best[-1]]
-    return selected, best_cfg, float(best.fitness.values[0])
+    front = [
+        {
+            "accuracy": float(ind.fitness.values[0]),
+            "n_features": int(ind.fitness.values[1]),
+            "features": np.flatnonzero(np.asarray(ind[:-1], dtype=bool)).tolist(),
+        }
+        for ind in pareto_front
+    ]
+    return selected, best_cfg, float(best.fitness.values[0]), front
 
 def rf_run_ga_bc(make_model, X, y, splits, bc_feature_set, *, seed=0, verbose=True, **hp_overrides):
     """Run the GA and return (selected_feature_indices, best_cv_accuracy).
@@ -311,4 +336,13 @@ def rf_run_ga_bc(make_model, X, y, splits, bc_feature_set, *, seed=0, verbose=Tr
     best = max(pareto_front, key=lambda ind: ind.fitness.values[0])
     selected = np.flatnonzero(np.asarray(best[:-1], dtype=bool))
     best_cfg = RF_CONFIGS[best[-1]]
-    return selected, best_cfg, float(best.fitness.values[0])
+    front = [
+        {
+            "accuracy": float(ind.fitness.values[0]),
+            "n_features": int(ind.fitness.values[1]),
+            "n_bc": int(ind.fitness.values[2]),
+            "features": np.flatnonzero(np.asarray(ind[:-1], dtype=bool)).tolist(),
+        }
+        for ind in pareto_front
+    ]
+    return selected, best_cfg, float(best.fitness.values[0]), front
