@@ -72,7 +72,7 @@ def train_ga_svm(X, y, genes_out="ga_selected_genes.txt", **ga_kwargs):
         return make_pipeline(StandardScaler(), LinearSVC(C=C, max_iter=5000, dual="auto"))
 
     splits = make_splits(np.asarray(y))
-    selected, best_C, best_acc = svm_run_ga(make_model, np.asarray(X), np.asarray(y), splits, **ga_kwargs)
+    selected, best_C, best_acc, front = svm_run_ga(make_model, np.asarray(X), np.asarray(y), splits, **ga_kwargs)
 
     _, genes = select_bc_features(selected)
     with open(genes_out, "w") as f:
@@ -81,7 +81,7 @@ def train_ga_svm(X, y, genes_out="ga_selected_genes.txt", **ga_kwargs):
     print(f"GA selected {len(selected)} features, {len(genes)} KEGG BC genes, C={best_C}, CV acc={best_acc:.3f}")
     final = make_pipeline(StandardScaler(), LinearSVC(C=best_C, max_iter=5000, dual="auto"))
     final.fit(np.asarray(X)[:, selected], np.asarray(y))
-    return final, selected, best_C
+    return final, selected, best_C, front
 
 
 def train_kegg_ga_svm(X, y, keep, genes_out="kegg_ga_selected_genes.txt", **ga_kwargs):
@@ -90,7 +90,7 @@ def train_kegg_ga_svm(X, y, keep, genes_out="kegg_ga_selected_genes.txt", **ga_k
         return make_pipeline(StandardScaler(), LinearSVC(C=C, max_iter=5000, dual="auto"))
 
     splits = make_splits(np.asarray(y))
-    selected, best_C, best_acc = svm_run_ga_bc(make_model, np.asarray(X), np.asarray(y), splits, set(keep), **ga_kwargs)
+    selected, best_C, best_acc, front = svm_run_ga_bc(make_model, np.asarray(X), np.asarray(y), splits, set(keep), **ga_kwargs)
 
     _, genes = select_bc_features(selected)
     with open(genes_out, "w") as f:
@@ -99,4 +99,4 @@ def train_kegg_ga_svm(X, y, keep, genes_out="kegg_ga_selected_genes.txt", **ga_k
     print(f"KEGG-GA selected {len(selected)} features, {len(genes)} KEGG BC genes, C={best_C}, CV acc={best_acc:.3f}")
     final = make_pipeline(StandardScaler(), LinearSVC(C=best_C, max_iter=5000, dual="auto"))
     final.fit(np.asarray(X)[:, selected], np.asarray(y))
-    return final, selected, best_C
+    return final, selected, best_C, front
