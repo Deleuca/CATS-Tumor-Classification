@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 import os
+from tqdm import tqdm
 
 
 CALL_PATH = "B4TM_CATS_training_data/Train_call.tsv"
@@ -65,7 +66,7 @@ def select_bc_features(
         bc = {line.strip() for line in f if line.strip()}
 
     kept, genes = [], set()
-    for fid in feature_ids:
+    for fid in tqdm(feature_ids, desc="UCSC lookup"):
         chrom, start, end = call.iloc[int(fid)][["Chromosome", "Start", "End"]]
         hits = _genes_in_region(int(chrom), int(start), int(end), genome=genome) & bc
         if hits:
