@@ -26,13 +26,16 @@ Run `python src/svm.py` from the repo root for an end-to-end verification.
 from sklearn.svm import LinearSVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 import numpy as np
 import pandas as pd
 from gene_selection import select_bc_features
+from feature_selection import svm_run_ga, svm_run_ga_bc
+from evaluate import make_splits
 
 
 def read_data():
-    """Load CATS arrayCGH training data along with chromosome assignments."""
+    """Load CATS arrayCGH training data."""
     call = pd.read_csv("B4TM_CATS_training_data/Train_call.tsv", sep="\t")
     clinical = pd.read_csv("B4TM_CATS_training_data/Train_clinical.tsv", sep="\t")
     clinical["Subgroup"] = clinical["Subgroup"].astype("category")
@@ -45,17 +48,55 @@ def read_data():
     merged = pd.merge(transposed_call, clinical, on="Sample")
     X = merged.drop(columns=["Sample", "Subgroup"])
     y = merged["Subgroup"]
+    return X, y
 
+
+def train_kegg_svm(X, y, c_values=[0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0], genes_out="selected_bc_genes.txt"):
+    """SVM trained on KEGG-curated BC gene features with GridSearchCV for C."""
     keep, bc_genes = select_bc_features(X.columns)
-    X = X[keep]
-    return X, y, bc_genes
+    with open(genes_out, "w") as f:
+        f.write("\n".join(bc_genes) + "\n")
+    print(f"KEGG filter: {len(keep)} features covering {len(bc_genes)} BC genes")
 
-def train_svm(X,y):
-    param_grid = {"linearsvc__C": [0.01, 0.05, 0.075, 0.1, 0.125, 0.25, 0.5, 1.0]}
-
+    X_kegg = np.asarray(X)[:, keep]
     pipeline = make_pipeline(StandardScaler(), LinearSVC(max_iter=5000, dual="auto"))
+    gs = GridSearchCV(pipeline, {"linearsvc__C": c_values}, cv=5, scoring="accuracy", n_jobs=-1)
+    gs.fit(X_kegg, np.asarray(y))
+    print(f"KEGG SVM best C={gs.best_params_['linearsvc__C']}, CV acc={gs.best_score_:.3f}")
+    return gs.best_estimator_, keep, bc_genes
 
-    gs = GridSearchCV(pipeline, param_grid, cv=5, scoring="accuracy", n_jobs=-1)
-    gs.fit(X, y)
 
-    return gs.best_estimator_
+def train_ga_svm(X, y, genes_out="ga_selected_genes.txt", **ga_kwargs):
+    """GA-based joint feature selection and C optimisation over all features."""
+    def make_model(_, C):
+        return make_pipeline(StandardScaler(), LinearSVC(C=C, max_iter=5000, dual="auto"))
+
+    splits = make_splits(np.asarray(y))
+    selected, best_C, best_acc = svm_run_ga(make_model, np.asarray(X), np.asarray(y), splits, **ga_kwargs)
+
+    _, genes = select_bc_features(selected)
+    with open(genes_out, "w") as f:
+        f.write("\n".join(genes) + "\n")
+
+    print(f"GA selected {len(selected)} features, {len(genes)} KEGG BC genes, C={best_C}, CV acc={best_acc:.3f}")
+    final = make_pipeline(StandardScaler(), LinearSVC(C=best_C, max_iter=5000, dual="auto"))
+    final.fit(np.asarray(X)[:, selected], np.asarray(y))
+    return final, selected, best_C
+
+
+def train_kegg_ga_svm(X, y, keep, genes_out="kegg_ga_selected_genes.txt", **ga_kwargs):
+    """GA with 3-objective fitness: accuracy, sparsity, KEGG BC feature overlap."""
+    def make_model(_, C):
+        return make_pipeline(StandardScaler(), LinearSVC(C=C, max_iter=5000, dual="auto"))
+
+    splits = make_splits(np.asarray(y))
+    selected, best_C, best_acc = svm_run_ga_bc(make_model, np.asarray(X), np.asarray(y), splits, set(keep), **ga_kwargs)
+
+    _, genes = select_bc_features(selected)
+    with open(genes_out, "w") as f:
+        f.write("\n".join(genes) + "\n")
+
+    print(f"KEGG-GA selected {len(selected)} features, {len(genes)} KEGG BC genes, C={best_C}, CV acc={best_acc:.3f}")
+    final = make_pipeline(StandardScaler(), LinearSVC(C=best_C, max_iter=5000, dual="auto"))
+    final.fit(np.asarray(X)[:, selected], np.asarray(y))
+    return final, selected, best_C
