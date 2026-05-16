@@ -50,6 +50,32 @@ def _find_genes(row, genemap_df):
     else:
         return ""
 
+_ANNOTATED_CALL = None
+
+
+def _get_annotated_call(call_path=CALL_PATH):
+    """Build (or return cached) per-probe gene annotation."""
+    global _ANNOTATED_CALL
+    if _ANNOTATED_CALL is None:
+        call = pd.read_csv(call_path, sep="\t")
+        bptogene = pd.read_csv("BasepairToGeneMap.tsv", delimiter="\t")
+        call["Chromosome"] = call["Chromosome"].astype(str).replace({"23": "X"})
+        call["Gene"] = call.apply(lambda row: _find_genes(row, bptogene), axis=1)
+        _ANNOTATED_CALL = call
+    return _ANNOTATED_CALL
+
+
+def genes_for_features(feature_ids, call_path=CALL_PATH):
+    """Return sorted list of HGNC symbols overlapping the given probe indices."""
+    annotated = _get_annotated_call(call_path)
+    genes = set()
+    for fid in feature_ids:
+        probe_genes = annotated.iloc[int(fid)]["Gene"]
+        if probe_genes:
+            genes |= set(probe_genes)
+    return sorted(genes)
+
+
 def select_bc_features(
     feature_ids,
     call_path=CALL_PATH,
@@ -57,19 +83,13 @@ def select_bc_features(
 ):
     if not os.path.isfile(GENES_PATH):
         get_breast_cancer_genes()
-    call = pd.read_csv(call_path, sep="\t")
     with open(genes_path) as f:
         bc = {line.strip() for line in f if line.strip()}
 
-    bptogene = pd.read_csv("BasepairToGeneMap.tsv", delimiter="\t")
-    call["Chromosome"] = call["Chromosome"].astype(str).replace({"23": "X"})
-
-    annotated_call = call.copy(deep=True)
-    annotated_call["Gene"] = annotated_call.apply(lambda row: _find_genes(row, bptogene), axis=1)
-
+    annotated = _get_annotated_call(call_path)
     kept, genes = [], set()
     for fid in tqdm(feature_ids, desc="Gene lookup"):
-        probe_genes = annotated_call.iloc[int(fid)]["Gene"]
+        probe_genes = annotated.iloc[int(fid)]["Gene"]
         if not probe_genes:
             continue
         hits = set(probe_genes) & bc
