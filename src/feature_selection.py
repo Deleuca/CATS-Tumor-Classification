@@ -14,8 +14,34 @@ from __future__ import annotations
 import random
 import numpy as np
 from deap import base, creator, tools, algorithms
+from kneed import KneeLocator
 
 from evaluate import cv_evaluate, make_splits
+
+
+def select_knee_from_front(front):
+    """Return the knee member of the (n_features, accuracy) curve, or None.
+
+    `front` is a list of dicts (as saved in the pareto_*.json files), each with
+    at least 'n_features' and 'accuracy' fields. For each unique n_features we
+    keep the member with the highest accuracy (upper envelope), then ask kneed
+    for the elbow of that monotone curve.
+    """
+    if len(front) < 3:
+        return None
+    upper = {}
+    for m in front:
+        nf = m["n_features"]
+        if nf not in upper or upper[nf]["accuracy"] < m["accuracy"]:
+            upper[nf] = m
+    xs = sorted(upper.keys())
+    if len(xs) < 3:
+        return None
+    ys = [upper[x]["accuracy"] for x in xs]
+    locator = KneeLocator(xs, ys, curve="concave", direction="increasing")
+    if locator.knee is None:
+        return None
+    return upper[locator.knee]
 
 
 # Default GA hyperparameters (override per model via run_ga kwargs).
