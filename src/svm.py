@@ -29,7 +29,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 import pandas as pd
-from gene_selection import select_bc_features
+from gene_selection import select_bc_features, genes_for_features
 from feature_selection import svm_run_ga, svm_run_ga_bc
 from evaluate import make_splits
 
@@ -74,11 +74,11 @@ def train_ga_svm(X, y, genes_out="svm_ga_selected_genes.txt", **ga_kwargs):
     splits = make_splits(np.asarray(y))
     selected, best_C, best_acc, front = svm_run_ga(make_model, np.asarray(X), np.asarray(y), splits, **ga_kwargs)
 
-    _, genes = select_bc_features(selected)
+    genes = genes_for_features(selected)
     with open(genes_out, "w") as f:
         f.write("\n".join(genes) + "\n")
 
-    print(f"GA selected {len(selected)} features, {len(genes)} KEGG BC genes, C={best_C}, CV acc={best_acc:.3f}")
+    print(f"GA selected {len(selected)} features, {len(genes)} genes, C={best_C}, CV acc={best_acc:.3f}")
     final = make_pipeline(StandardScaler(), LinearSVC(C=best_C, max_iter=5000, dual="auto"))
     final.fit(np.asarray(X)[:, selected], np.asarray(y))
     return final, selected, best_C, front
@@ -92,11 +92,11 @@ def train_kegg_ga_svm(X, y, keep, genes_out="svm_kegg_ga_selected_genes.txt", **
     splits = make_splits(np.asarray(y))
     selected, best_C, best_acc, front = svm_run_ga_bc(make_model, np.asarray(X), np.asarray(y), splits, set(keep), **ga_kwargs)
 
-    _, genes = select_bc_features(selected)
+    genes = genes_for_features(selected)
     with open(genes_out, "w") as f:
         f.write("\n".join(genes) + "\n")
 
-    print(f"KEGG-GA selected {len(selected)} features, {len(genes)} KEGG BC genes, C={best_C}, CV acc={best_acc:.3f}")
+    print(f"KEGG-GA selected {len(selected)} features, {len(genes)} genes, C={best_C}, CV acc={best_acc:.3f}")
     final = make_pipeline(StandardScaler(), LinearSVC(C=best_C, max_iter=5000, dual="auto"))
     final.fit(np.asarray(X)[:, selected], np.asarray(y))
     return final, selected, best_C, front

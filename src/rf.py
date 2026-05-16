@@ -3,7 +3,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import make_pipeline
 import numpy as np
-from gene_selection import select_bc_features
+from gene_selection import select_bc_features, genes_for_features
 from feature_selection import rf_run_ga, rf_run_ga_bc
 from evaluate import make_splits
 
@@ -41,11 +41,11 @@ def train_ga_rf(X, y, genes_out="rf_ga_selected_genes.txt", **ga_kwargs):
     splits = make_splits(np.asarray(y))
     selected, best_cfg, best_acc, front = rf_run_ga(make_model, np.asarray(X), np.asarray(y), splits, **ga_kwargs)
 
-    _, genes = select_bc_features(selected)
+    genes = genes_for_features(selected)
     with open(genes_out, "w") as f:
         f.write("\n".join(genes) + "\n")
 
-    print(f"GA RF: {len(selected)} features, {len(genes)} KEGG BC genes, CV acc={best_acc:.3f}, cfg={best_cfg}")
+    print(f"GA RF: {len(selected)} features, {len(genes)} genes, CV acc={best_acc:.3f}, cfg={best_cfg}")
     final = make_pipeline(RandomForestClassifier(**best_cfg, random_state=42, n_jobs=-1))
     final.fit(np.asarray(X)[:, selected], np.asarray(y))
     return final, selected, best_cfg, front
@@ -59,11 +59,11 @@ def train_kegg_ga_rf(X, y, keep, genes_out="rf_kegg_ga_selected_genes.txt", **ga
     splits = make_splits(np.asarray(y))
     selected, best_cfg, best_acc, front = rf_run_ga_bc(make_model, np.asarray(X), np.asarray(y), splits, set(keep), **ga_kwargs)
 
-    _, genes = select_bc_features(selected)
+    genes = genes_for_features(selected)
     with open(genes_out, "w") as f:
         f.write("\n".join(genes) + "\n")
 
-    print(f"KEGG-GA RF: {len(selected)} features, {len(genes)} KEGG BC genes, CV acc={best_acc:.3f}, cfg={best_cfg}")
+    print(f"KEGG-GA RF: {len(selected)} features, {len(genes)} genes, CV acc={best_acc:.3f}, cfg={best_cfg}")
     final = make_pipeline(RandomForestClassifier(**best_cfg, random_state=42, n_jobs=-1))
     final.fit(np.asarray(X)[:, selected], np.asarray(y))
     return final, selected, best_cfg, front
