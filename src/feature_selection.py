@@ -148,6 +148,7 @@ def svm_run_ga(make_model, X, y, splits, *, seed=0, verbose=True, **hp_overrides
         {
             "accuracy": float(ind.fitness.values[0]),
             "n_features": int(ind.fitness.values[1]),
+            "C": float(c_values[ind[-1]]),
             "features": np.flatnonzero(np.asarray(ind[:-1], dtype=bool)).tolist(),
         }
         for ind in pareto_front
@@ -222,6 +223,7 @@ def svm_run_ga_bc(make_model, X, y, splits, bc_feature_set, *, seed=0, verbose=T
             "accuracy": float(ind.fitness.values[0]),
             "n_features": int(ind.fitness.values[1]),
             "n_bc": int(ind.fitness.values[2]),
+            "C": float(c_values[ind[-1]]),
             "features": np.flatnonzero(np.asarray(ind[:-1], dtype=bool)).tolist(),
         }
         for ind in pareto_front
@@ -272,6 +274,7 @@ def rf_run_ga(make_model, X, y, splits, *, seed=0, verbose=True, **hp_overrides)
         {
             "accuracy": float(ind.fitness.values[0]),
             "n_features": int(ind.fitness.values[1]),
+            "cfg": RF_CONFIGS[ind[-1]],
             "features": np.flatnonzero(np.asarray(ind[:-1], dtype=bool)).tolist(),
         }
         for ind in pareto_front
@@ -341,6 +344,7 @@ def rf_run_ga_bc(make_model, X, y, splits, bc_feature_set, *, seed=0, verbose=Tr
             "accuracy": float(ind.fitness.values[0]),
             "n_features": int(ind.fitness.values[1]),
             "n_bc": int(ind.fitness.values[2]),
+            "cfg": RF_CONFIGS[ind[-1]],
             "features": np.flatnonzero(np.asarray(ind[:-1], dtype=bool)).tolist(),
         }
         for ind in pareto_front
