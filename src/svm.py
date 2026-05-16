@@ -66,7 +66,7 @@ def train_kegg_svm(X, y, c_values=[0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0], genes_
     return gs.best_estimator_, keep, bc_genes
 
 
-def train_ga_svm(X, y, genes_out="ga_selected_genes.txt", **ga_kwargs):
+def train_ga_svm(X, y, genes_out="svm_ga_selected_genes.txt", **ga_kwargs):
     """GA-based joint feature selection and C optimisation over all features."""
     def make_model(_, C):
         return make_pipeline(StandardScaler(), LinearSVC(C=C, max_iter=5000, dual="auto"))
@@ -84,7 +84,7 @@ def train_ga_svm(X, y, genes_out="ga_selected_genes.txt", **ga_kwargs):
     return final, selected, best_C, front
 
 
-def train_kegg_ga_svm(X, y, keep, genes_out="kegg_ga_selected_genes.txt", **ga_kwargs):
+def train_kegg_ga_svm(X, y, keep, genes_out="svm_kegg_ga_selected_genes.txt", **ga_kwargs):
     """GA with 3-objective fitness: accuracy, sparsity, KEGG BC feature overlap."""
     def make_model(_, C):
         return make_pipeline(StandardScaler(), LinearSVC(C=C, max_iter=5000, dual="auto"))
